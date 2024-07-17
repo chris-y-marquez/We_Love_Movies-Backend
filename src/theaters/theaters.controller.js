@@ -1,10 +1,15 @@
-const theatersService = require("./theaters.service");
+const { response } = require("express");
+const service = require("./theaters.service");
 
-async function list (req, res, next) {
-        const theaters = await theatersService.list()
-        res.json({ data: theaters })
-}
+const reduceProperties = require("../utils/reduce-properties");
+
+
+async function list(req, res, next) {
+  const data = await service.list()
+  res.json({ data })
+};
+
 
 module.exports = {
-    list,
+  list
 }

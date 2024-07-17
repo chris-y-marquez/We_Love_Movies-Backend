@@ -1,35 +1,41 @@
-const knex = require("../db/connection"); 
-const mapProperties = require("../utils/map-properties");
+const knex = require("../db/connection");
+const reduceProperties = require("../utils/reduce-properties");
 
-async function read(reviewId) {
-    return knex("reviews as r")
-        .join("critics as c", "c.critic_id", "r.critic_id")
-        .select("r.*", "c.*")
-        .where({"review_id":reviewId})
-        .first()
-        .then(addCritic);
+function read(review_id) {
+    return knex("reviews").select("*").where({ review_id }).first()
 }
 
-const addCritic = mapProperties({
-    preferred_name: "critic.preferred_name",
-    surname: "critic.surname",
-    organization_name: "critic.organization_name",
-  });
+function destroy(review_id){
+    return knex("reviews").where({ review_id }).del()
+}
 
-async function update(updatedReview) {
+function update(updatedReview){
     return knex("reviews")
+        .join("critics", "reviews.critic_id", "critics.critic_id")
         .select("*")
         .where({ review_id: updatedReview.review_id })
-        .update(updatedReview, "*");
+        .update(updatedReview, "*")
+        .then((updatedRecord) => updatedRecord[0])
 }
 
-async function destroy(reviewId) {
-    return knex("reviews")
-        .where({"review_id":reviewId}).del();
+function readWithCritic(review_id){
+  return knex("reviews")
+        .join("critics", "reviews.critic_id", "critics.critic_id")
+        .select("*")
+        .where({ review_id })
+        .then(reduceReview)
 }
+
+const reduceReview = reduceProperties("critic_id", {
+  preferred_name: ["critic", "preferred_name"],
+  surname: ["critic", "surname"],
+  organization_name: ["critic", "organization_name"],
+})
+
 
 module.exports = {
     read,
+    readWithCritic,
     update,
-    delete: destroy,
+    delete:destroy,
 }

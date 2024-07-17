@@ -1,65 +1,71 @@
-const knex = require("../db/connection")
-
-const mapProperties = require ('../utils/map-properties');
-
-
-const addCriticDetails = mapProperties({
-  critic_id: 'critic.critic_id',
-  preferred_name: 'critic.preferred_name',
-  surname: 'critic.surname',
-  organization_name: 'critic.organization_name',
-});
+const knex = require("../db/connection");
+const reduceProperties = require("../utils/reduce-properties");
+// const reduceReview = require("../reviews/reviews.service")
 
 
-function list(isShowing) {
-  if(isShowing) {
-    return knex("movies as m")
-        .join("movies_theaters as mt", "m.movie_id", "mt.movie_id")
-        .select("m.*")
-        .where({ is_showing: true })
-        .groupBy('m.movie_id')
-  }
-  
+function list() {
   return knex("movies").select("*")
-}
+};
 
-function read(movieId) {
+// "/:movieId?is_showing=true"
+function isShowing(){
   return knex("movies")
-        .select("*")
-        .where({ movie_id: movieId })
-      .first()
+    .join("movies_theaters", "movies.movie_id", "movies_theaters.movie_id")
+    .select("movies.*")
+    .where({"movies_theaters.is_showing":true})
+    .groupBy("movies.movie_id")
+};
+
+function read(movieId){
+  return knex("movies")
+    .select("*")
+    .where({ movie_id: movieId })
+    .first()
+  };
+
+//"/:movieId/theaters"
+function readTheaters(movieId){
+  return knex("movies as m")
+    .join("movies_theaters as mt", "m.movie_id", "mt.movie_id")
+    .join("theaters as t", "t.theater_id", "mt.theater_id")
+    .where({ "m.movie_id": movieId })
+    .select("t.theater_id", "name", "address_line_1", "address_line_2", "city", "state", "zip", "t.created_at", "t.updated_at", "is_showing", "m.movie_id")
 }
 
-function listTheatersMovies(movieId) {
-  return knex('theaters')
-      .join(
-    'movies_theaters',
-    'movies_theaters.theater_id',
-    'theaters.theater_id'
-  )
-  .where('movies_theaters.movie_id', movieId)
-  .select('*')
+// "/:movieId/reviews"
+function readReviews(movieId){
+    return knex("reviews as r")
+      .join("critics as c", "r.critic_id", "c.critic_id")
+      .select(
+        "r.review_id", 
+        "r.content",
+        "r.score", 
+        "r.created_at",
+        "r.updated_at",
+        "r.critic_id",
+        "r.movie_id",
+        "c.critic_id",
+        "c.preferred_name",
+        "c.surname", 
+        "c.organization_name", 
+        "c.created_at", 
+        "c.updated_at")
+      .groupBy("r.review_id", "c.critic_id")
+      .where({ "r.movie_id": movieId})
+      .then(reduceReview)
 }
 
-function listTheatersReviews(movieId) {
-  return knex ('movies as m')
-    .join('reviews as r', ' r.movie_id', 'm.movie_id')
-  .join ('critics as c', 'c.critic_id', 'r.critic_id')
-  .select('*')
-  .where({ 'r.movie_id' : movieId })
-  .then((reviews) => {
-    const reviewsCriticDetails = [];
-    reviews.forEach((review) => {
-      const addedCritic = addCriticDetails(review);
-      reviewsCriticDetails.push(addedCritic)
-    });
-    return reviewsCriticDetails
-  })
-}
+// Helper function for readReviews - Formats review properties for prettier output
+const reduceReview = reduceProperties("critic_id", {
+  preferred_name: ["critic", "preferred_name"],
+  surname: ["critic", "surname"],
+  organization_name: ["critic", "organization_name"],
+})
 
 module.exports = {
-    list,
-    read,
-    listTheatersMovies,
-    listTheatersReviews,
+  list,
+  read,
+  isShowing,
+  readTheaters,
+  readReviews,
 }
